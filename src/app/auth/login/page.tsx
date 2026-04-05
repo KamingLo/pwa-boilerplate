@@ -1,47 +1,42 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// 1. Import Server Actions
-import { loginUser } from '@/app/actions/auth/login';
-import { initiateGoogleAuth } from '@/app/actions/auth/oauth';
+import { loginUser } from '@/lib/actions/auth/login';
+import { initiateGoogleAuth } from '@/lib/actions/auth/oauth';
+import { forgotPassword } from '@/lib/actions/auth/forgot-password';
 
 function LoginForm() {
+  const [view, setView] = useState<'login' | 'forgot'>('login');
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const errorParam = searchParams.get('error');
-    if (errorParam === 'user_not_registered') {
-      setErrorMessage('Akun Google kamu belum terdaftar. Silakan daftar terlebih dahulu.');
-    } else if (errorParam === 'google_auth_failed') {
-      setErrorMessage('Gagal melakukan autentikasi dengan Google.');
-    }
-  }, [searchParams]);
+  const toggleView = (newView: 'login' | 'forgot') => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setView(newView);
+  };
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading) return; // Prevent double submission
-    
+    if (isLoading) return;
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
       const result = await loginUser(formData);
-      
       if (!result.success) {
         setErrorMessage(result.message || 'Email atau password salah');
-        setIsLoading(false); // Set false di sini jika gagal agar tombol aktif kembali
+        setIsLoading(false);
         return;
       }
-      
       router.push('/dashboard');
     } catch (error) {
       setErrorMessage('Terjadi kesalahan sistem saat masuk');
@@ -51,21 +46,17 @@ function LoginForm() {
 
   const handleGoogleLogin = async () => {
     if (isLoading) return;
-
     setIsLoading(true);
     setErrorMessage(null);
-    
+
     try {
       const result = await initiateGoogleAuth('web');
-      
       if (!result.success) {
         setErrorMessage(result.message || 'Gagal menghubungi server Google');
         setIsLoading(false);
         return;
       }
-
       const googleAuthUrl = result.data?.data?.url;
-      
       if (googleAuthUrl) {
         window.location.href = googleAuthUrl;
       } else {
@@ -78,102 +69,162 @@ function LoginForm() {
     }
   };
 
-  return (
-    <div className="w-full max-w-sm space-y-8 bg-white p-8 rounded-3xl shadow-sm border border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Masuk</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Gunakan akun Universitas Tarumanagara kamu
-        </p>
-      </div>
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
 
-      {errorMessage && (
-        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl dark:bg-red-950/30 dark:border-red-900/50">
-          <p className="text-sm text-red-600 dark:text-red-400 font-bold text-center">
-            {errorMessage}
+    try {
+      const result = await forgotPassword(formData.email);
+      if (result.success) {
+        setSuccessMessage('Tautan reset telah dikirim ke email kamu.');
+        setFormData({ ...formData, email: '' });
+      } else {
+        setErrorMessage(result.message);
+      }
+    } catch (error) {
+      setErrorMessage('Gagal menghubungi server.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-md z-10">
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 md:p-10 backdrop-blur-xl shadow-2xl">
+        <div className="text-center space-y-3 mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+            {view === 'login' ? 'Welcome Back' : 'Reset Password'}
+          </h1>
+          <p className="text-sm text-zinc-400">
+            {view === 'login' 
+              ? 'Gunakan akun universitas untuk akses ekosistem' 
+              : 'Masukkan email untuk menerima tautan pemulihan'}
           </p>
         </div>
-      )}
 
-      <form onSubmit={handleManualLogin} className="space-y-4">
-        <div className="space-y-1">
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+            <p className="text-sm text-red-400 font-bold text-center">{errorMessage}</p>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+            <p className="text-sm text-emerald-400 font-bold text-center">{successMessage}</p>
+          </div>
+        )}
+
+        <form onSubmit={view === 'login' ? handleManualLogin : handleForgotPassword} className="space-y-4">
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email Address"
             disabled={isLoading}
-            className="w-full p-4 border border-zinc-200 rounded-2xl outline-none focus:border-zinc-900 transition-colors dark:bg-black dark:border-zinc-700 dark:focus:border-zinc-50 disabled:opacity-50"
+            className="w-full p-4 bg-black border border-zinc-800 rounded-2xl outline-none focus:border-cyan-500/50 transition-all text-white placeholder:text-zinc-600 disabled:opacity-50"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required
           />
-        </div>
-        <div className="space-y-1">
-          <input
-            type="password"
-            placeholder="Password"
+
+          {view === 'login' && (
+            <>
+              <input
+                type="password"
+                placeholder="Password"
+                disabled={isLoading}
+                className="w-full p-4 bg-black border border-zinc-800 rounded-2xl outline-none focus:border-cyan-500/50 transition-all text-white placeholder:text-zinc-600 disabled:opacity-50"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+              />
+              <div className="flex justify-end px-1">
+                <button 
+                  type="button"
+                  onClick={() => toggleView('forgot')}
+                  className="text-xs font-bold text-zinc-500 hover:text-cyan-400 transition-colors"
+                >
+                  Lupa password?
+                </button>
+              </div>
+            </>
+          )}
+
+          <button
+            type="submit"
             disabled={isLoading}
-            className="w-full p-4 border border-zinc-200 rounded-2xl outline-none focus:border-zinc-900 transition-colors dark:bg-black dark:border-zinc-700 dark:focus:border-zinc-50 disabled:opacity-50"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-          />
-        </div>
+            className="w-full bg-white text-black p-4 rounded-2xl font-bold hover:bg-zinc-200 transition-all active:scale-[0.98] disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed shadow-lg shadow-white/5"
+          >
+            {isLoading ? 'Processing...' : (view === 'login' ? 'Sign In' : 'Send Reset Link')}
+          </button>
+        </form>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-zinc-950 text-white p-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:bg-zinc-300 disabled:scale-100 disabled:cursor-not-allowed dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-        >
-          {isLoading ? 'Memproses...' : 'Masuk'}
-        </button>
-      </form>
+        {view === 'login' ? (
+          <>
+            <div className="relative flex items-center py-8">
+              <div className="flex-grow border-t border-zinc-800"></div>
+              <span className="flex-shrink mx-4 text-zinc-600 text-[10px] font-bold uppercase tracking-widest">Atau</span>
+              <div className="flex-grow border-t border-zinc-800"></div>
+            </div>
 
-      <div className="relative flex items-center py-2">
-        <div className="flex-grow border-t border-zinc-100 dark:border-zinc-800"></div>
-        <span className="flex-shrink mx-4 text-zinc-400 text-xs font-bold uppercase">Atau</span>
-        <div className="flex-grow border-t border-zinc-100 dark:border-zinc-800"></div>
-      </div>
+            <button
+              onClick={handleGoogleLogin}
+              type="button"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-3 border border-zinc-800 p-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all active:scale-[0.98] text-white"
+            >
+              <Image src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" width={18} height={18} />
+              <span>Continue with Google</span>
+            </button>
 
-      <button
-        onClick={handleGoogleLogin}
-        type="button"
-        disabled={isLoading}
-        className="w-full flex items-center justify-center gap-3 border border-zinc-200 p-4 rounded-2xl font-bold hover:bg-zinc-50 transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-      >
-        <Image 
-          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-          alt="Google Logo" 
-          width={20} 
-          height={20} 
-          className={isLoading ? 'grayscale opacity-50' : ''}
-        />
-        <span className="text-zinc-900 dark:text-zinc-50">
-          {isLoading ? 'Menghubungkan...' : 'Masuk dengan Google'}
-        </span>
-      </button>
-
-      <p className="text-center text-sm text-zinc-500">
-        Belum punya akun?{' '}
-        {isLoading ? (
-          <span className="text-zinc-300 font-bold dark:text-zinc-700 cursor-not-allowed">
-            Daftar sekarang
-          </span>
+            <p className="mt-8 text-center text-sm text-zinc-500">
+              Belum punya akun?{' '}
+              <Link href="/auth/register" className="text-white font-bold hover:text-cyan-400 transition-colors">
+                Daftar sekarang
+              </Link>
+            </p>
+          </>
         ) : (
-          <Link href="/auth/register" className="text-zinc-950 font-bold hover:underline dark:text-zinc-50">
-            Daftar sekarang
-          </Link>
+          <button 
+            onClick={() => toggleView('login')}
+            className="w-full mt-8 text-center text-sm text-white font-bold hover:text-cyan-400 transition-colors"
+          >
+            Kembali ke halaman masuk
+          </button>
         )}
-      </p>
+      </div>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-zinc-50 dark:bg-black font-sans">
-      <Suspense fallback={<div className="text-zinc-500">Memuat...</div>}>
+    <main className="relative min-h-screen flex flex-col items-center justify-center p-6 bg-black text-white overflow-hidden">
+      {/* Reusing the Brand Header Style */}
+      <div className="absolute top-0 w-full max-w-6xl flex items-center justify-between p-8 z-20">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-sm shadow-lg shadow-cyan-500/20">
+            A
+          </div>
+          <span className="text-xl font-bold tracking-tight group-hover:text-cyan-400 transition-colors">Auth-Next</span>
+        </Link>
+      </div>
+
+      <Suspense fallback={<div className="text-zinc-500 font-mono text-xs animate-pulse">LOADING_SYSTEM...</div>}>
         <LoginForm />
       </Suspense>
+
+      {/* Footer Branding */}
+      <div className="absolute bottom-8 text-center z-20">
+        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-[0.2em]">
+          Secured by MSC Ecosystem • 2026
+        </p>
+      </div>
+
+      {/* Background Ambience consistent with Homepage */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_50%_-10%,#1e293b,transparent_60%)] pointer-events-none" />
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-[radial-gradient(circle_at_50%_110%,#083344,transparent_50%)] opacity-30 pointer-events-none" />
     </main>
   );
 }
