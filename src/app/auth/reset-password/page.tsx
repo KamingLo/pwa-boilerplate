@@ -1,46 +1,16 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { resetPasswordAction } from '@/lib/actions/auth/reset-password';
+import { useResetPassword } from '@/hooks/auth/useResetPassword';
 
 function ResetPasswordForm() {
-  const [passwords, setPasswords] = useState({ new: '', confirm: '' });
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  const email = searchParams.get('email') || '';
-  const token = searchParams.get('token') || '';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLoading) return;
-
-    if (passwords.new !== passwords.confirm) {
-      setMessage({ type: 'error', text: 'Konfirmasi kata sandi tidak cocok' });
-      return;
-    }
-
-    setIsLoading(true);
-    setMessage(null);
-
-    const result = await resetPasswordAction({
-      email,
-      token,
-      new_password: passwords.new,
-    });
-
-    if (result.success) {
-      setMessage({ type: 'success', text: result.message });
-      setTimeout(() => router.push('/auth/login'), 3000);
-    } else {
-      setMessage({ type: 'error', text: result.message });
-      setIsLoading(false);
-    }
-  };
+  const { 
+    passwords, 
+    setPasswords, 
+    isLoading, 
+    message, 
+    token, 
+    handleSubmit 
+  } = useResetPassword();
 
   return (
     <div className="w-full max-w-sm space-y-8 bg-white p-8 rounded-3xl shadow-sm border border-zinc-100 dark:bg-zinc-900 dark:border-zinc-800">
@@ -72,6 +42,7 @@ function ResetPasswordForm() {
           onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
           required
           minLength={8}
+          disabled={isLoading}
         />
         <input
           type="password"
@@ -80,6 +51,7 @@ function ResetPasswordForm() {
           value={passwords.confirm}
           onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
           required
+          disabled={isLoading}
         />
 
         <button
@@ -91,15 +63,5 @@ function ResetPasswordForm() {
         </button>
       </form>
     </div>
-  );
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-zinc-50 dark:bg-black font-sans">
-      <Suspense fallback={<div className="text-zinc-500">Memuat...</div>}>
-        <ResetPasswordForm />
-      </Suspense>
-    </main>
   );
 }
