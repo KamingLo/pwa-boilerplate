@@ -1,4 +1,5 @@
-// @/hooks/useRegisterForm.ts
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendOtp, registerUser } from '@/lib/actions/auth/register';
@@ -11,6 +12,7 @@ export const useRegisterForm = () => {
     otp_code: '', 
     password: '' 
   });
+  
   const [isLoading, setIsLoading] = useState(false);
   const [loadingOTP, setLoadingOTP] = useState(false);
   const [notification, setNotification] = useState<{ type: 'error' | 'success', text: string } | null>(null);
@@ -27,17 +29,22 @@ export const useRegisterForm = () => {
       setNotification({ type: 'error', text: 'Masukkan email terlebih dahulu' });
       return;
     }
+
     setLoadingOTP(true);
     setNotification(null);
+
     try {
       const result = await sendOtp({ email: formData.email });
-      if (!result.success) {
-        setNotification({ type: 'error', text: result.error || result.message || 'Gagal mengirim OTP' });
-        return;
-      }
-      setNotification({ type: 'success', text: 'Kode OTP telah dikirim ke email Anda' });
-    } catch (error) {
-      setNotification({ type: 'error', text: 'Terjadi kesalahan sistem' });
+      
+      // Ambil pesan langsung dari backend untuk feedback ke user
+      setNotification({ 
+        type: result.success ? 'success' : 'error', 
+        text: result.message 
+      });
+
+    } catch {
+      // Tidak perlu menangkap objek error, cukup tampilkan pesan kegagalan sistem
+      setNotification({ type: 'error', text: 'Gagal menghubungi server' });
     } finally {
       setLoadingOTP(false);
     }
@@ -45,17 +52,23 @@ export const useRegisterForm = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
     setIsLoading(true);
     setNotification(null);
+
     try {
       const result = await registerUser(formData);
-      if (!result.success) {
-        setNotification({ type: 'error', text: result.error || result.message || 'Registrasi gagal' });
-        return;
+
+      if (result.success) {
+        setNotification({ type: 'success', text: result.message });
+        setTimeout(() => router.push('/auth/login'), 1500);
+      } else {
+        // Gunakan pesan error spesifik dari backend (misal: "OTP tidak valid")
+        setNotification({ type: 'error', text: result.message });
       }
-      setNotification({ type: 'success', text: 'Registrasi berhasil! Mengalihkan...' });
-      setTimeout(() => router.push('/auth/login'), 1500);
-    } catch (error) {
+
+    } catch {
       setNotification({ type: 'error', text: 'Terjadi kesalahan sistem' });
     } finally {
       setIsLoading(false);
@@ -63,7 +76,12 @@ export const useRegisterForm = () => {
   };
 
   return {
-    formData, setFormData, isLoading, loadingOTP, notification,
-    handleRequestOTP, handleRegister
+    formData, 
+    setFormData, 
+    isLoading, 
+    loadingOTP, 
+    notification,
+    handleRequestOTP, 
+    handleRegister
   };
 };

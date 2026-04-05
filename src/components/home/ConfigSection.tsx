@@ -37,8 +37,8 @@ export const ConfigSection = () => (
             <p className="text-zinc-500"># .env</p>
             <p className="text-white">
               <span className="text-pink-500">BACKEND_URL</span>=
-              <span className="text-yellow-400">"http://localhost:8000"</span> 
-              <span className="text-zinc-500 ml-4 hidden sm:inline">// Backend Template By Kaming</span>
+              <span className="text-yellow-400">&quot;http://localhost:8000&quot;</span> 
+              <span className="text-zinc-500 ml-4 hidden sm:inline">&#47;&#47; Backend Template By Kaming</span>
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-500 italic">

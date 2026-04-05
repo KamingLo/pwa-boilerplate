@@ -2,7 +2,26 @@
 
 import { cookies } from 'next/headers';
 
-type AuthPayload = Record<string, any>;
+// Mengganti 'any' dengan tipe yang lebih spesifik
+interface AuthPayload {
+  email?: string;
+  username?: string;
+  password?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface LoginResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    token: string;
+    user?: {
+      id: string;
+      email: string;
+      name: string;
+    };
+  };
+}
 
 export async function loginUser(payload: AuthPayload) {
   try {
@@ -14,7 +33,8 @@ export async function loginUser(payload: AuthPayload) {
       body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
+    // Menentukan tipe data hasil response.json()
+    const data: LoginResponse = await response.json();
 
     if (!response.ok) {
       return {
@@ -24,31 +44,33 @@ export async function loginUser(payload: AuthPayload) {
       };
     }
 
-    // Pastikan mengambil token sesuai struktur response dari Golang
     const token = data?.data?.token;
 
     if (!token) {
-      return { success: false, message: 'Token tidak ditemukan', status: 401 };
+      return { 
+        success: false, 
+        message: 'Token tidak ditemukan', 
+        status: 401 
+      };
     }
 
-    // Kelola Cookie secara Server-Side
     const cookieStore = await cookies();
     
-    // Hapus sisa cookie lama
-    cookieStore.delete('auth_token');
+    // Opsional: Langsung menimpa cookie lama seringkali lebih efisien daripada delete lalu set
+    cookieStore.set('auth_token', token);
 
-    // Set ulang dengan flag HttpOnly yang ketat
-    cookieStore.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24, // 1 hari
-    });
-
-    return { success: true, message: 'Login berhasil', data: data?.data };
+    return { 
+      success: true, 
+      message: 'Login berhasil', 
+      data: data?.data 
+    };
   } catch (error) {
+    // Mencatat error tanpa memunculkan error object yang berpotensi sensitif ke client
     console.error('Login Action Error:', error);
-    return { success: false, message: 'Server Error', status: 500 };
+    return { 
+      success: false, 
+      message: 'Server Error', 
+      status: 500 
+    };
   }
 }

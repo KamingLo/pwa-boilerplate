@@ -1,4 +1,5 @@
-// @/hooks/useResetPassword.ts
+'use client';
+
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { resetPasswordAction } from '@/lib/actions/auth/reset-password';
@@ -11,6 +12,7 @@ export const useResetPassword = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   
+  // Mengambil data dari URL query params
   const email = searchParams.get('email') || '';
   const token = searchParams.get('token') || '';
 
@@ -18,6 +20,7 @@ export const useResetPassword = () => {
     e.preventDefault();
     if (isLoading) return;
 
+    // Validasi dasar di sisi client sebelum kirim ke server
     if (passwords.new !== passwords.confirm) {
       setMessage({ type: 'error', text: 'Konfirmasi kata sandi tidak cocok' });
       return;
@@ -34,13 +37,16 @@ export const useResetPassword = () => {
       });
 
       if (result.success) {
+        // Gunakan pesan sukses dari backend (misal: "Kata sandi berhasil diperbarui")
         setMessage({ type: 'success', text: result.message });
         setTimeout(() => router.push('/auth/login'), 3000);
       } else {
+        // Tampilkan alasan gagal dari backend (misal: "Token kedaluwarsa")
         setMessage({ type: 'error', text: result.message });
         setIsLoading(false);
       }
-    } catch (err) {
+    } catch {
+      // Tangani kegagalan koneksi atau server crash tanpa mengekspos detail teknis
       setMessage({ type: 'error', text: 'Terjadi kesalahan sistem' });
       setIsLoading(false);
     }

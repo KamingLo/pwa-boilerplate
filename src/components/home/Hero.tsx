@@ -4,7 +4,7 @@ export const Hero = () => (
   <section className="flex flex-col items-center text-center mt-10 w-full max-w-5xl px-6 z-10 relative">
     <div className="mb-6 flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/50 px-4 py-1.5 text-xs md:text-sm font-medium text-zinc-300">
       <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      Optimized for Kaming's MSC Ecosystem
+      Optimized for Kaming&quot;s MSC Ecosystem
     </div>
     
     <h1 className="text-5xl md:text-7xl font-bold mb-8">

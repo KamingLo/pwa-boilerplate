@@ -20,7 +20,7 @@ export async function resetPasswordAction(data: {
     }
 
     return { success: true, message: 'Kata sandi berhasil diperbarui' };
-  } catch (error) {
+  } catch {
     return { success: false, message: 'Terjadi kesalahan koneksi ke server' };
   }
 }
