@@ -1,9 +1,10 @@
-// @/hooks/useAuthForm.ts
+// @/hooks/auth/useLoginForm.ts
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loginUser } from '@/lib/actions/auth/login';
 import { initiateGoogleAuth } from '@/lib/actions/auth/oauth';
 import { forgotPassword } from '@/lib/actions/auth/forgot-password';
+import { getSession } from '@/lib/actions/auth/session'; // Pastikan ini mengembalikan data user
 import { useUserStore } from '@/store/useUserStore';
 
 export const useAuthForm = () => {
@@ -14,7 +15,10 @@ export const useAuthForm = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const router = useRouter();
-  const setUser = useUserStore((state: any) => state.setUser);
+  
+  // Mengambil action dari store
+  const setUser = useUserStore((state) => state.setUser);
+  const setLoadingStore = useUserStore((state) => state.setLoading);
 
   const toggleView = (newView: 'login' | 'forgot') => {
     setErrorMessage(null);
@@ -25,35 +29,52 @@ export const useAuthForm = () => {
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
+    
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
+      // 1. Proses Login untuk mendapatkan JWT (disimpan di Cookie oleh Server Action)
       const result = await loginUser(formData);
+      
       if (result.success) {
-        setUser(result.data); // Simpan ke Zustand
-        router.push('/dashboard');
+        // 2. Karena hanya dapat JWT, kita perlu ambil data profil user sekarang
+        // agar Zustand langsung terisi sebelum pindah halaman
+        const session = await getSession();
+        
+        if (session.success && session.data) {
+          setUser(session.data); // Simpan data user asli (id, email, name) ke Zustand
+          setLoadingStore(false);
+          router.push('/dashboard');
+        } else {
+          setErrorMessage('Gagal mengambil profil akun. Silakan coba masuk kembali.');
+        }
       } else {
         setErrorMessage(result.message || 'Email atau password salah');
       }
     } catch (error) {
-      setErrorMessage('Terjadi kesalahan sistem');
+      setErrorMessage('Terjadi kesalahan sistem saat mencoba masuk');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
+    if (isLoading) return;
     setIsLoading(true);
+    setErrorMessage(null);
+
     try {
       const result = await initiateGoogleAuth('web');
       if (result.success && result.data?.data?.url) {
+        // Redirect ke Google tidak memerlukan set state user 
+        // karena session akan dicek ulang di dashboard setelah redirect balik
         window.location.href = result.data.data.url;
       } else {
-        setErrorMessage(result.message || 'Gagal inisiasi Google');
+        setErrorMessage(result.message || 'Gagal menghubungi server Google');
       }
     } catch (error) {
-      setErrorMessage('Kesalahan sistem Google');
+      setErrorMessage('Terjadi kesalahan sistem saat inisiasi Google');
     } finally {
       setIsLoading(false);
     }
@@ -61,25 +82,37 @@ export const useAuthForm = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+    
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
+
     try {
       const result = await forgotPassword(formData.email);
       if (result.success) {
-        setSuccessMessage('Tautan reset telah dikirim.');
+        setSuccessMessage('Tautan pemulihan telah dikirim ke email Anda.');
         setFormData({ ...formData, email: '' });
       } else {
-        setErrorMessage(result.message);
+        setErrorMessage(result.message || 'Email tidak ditemukan');
       }
     } catch (error) {
-      setErrorMessage('Gagal menghubungi server.');
+      setErrorMessage('Gagal menghubungi server pemulihan.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return {
-    view, formData, setFormData, isLoading, errorMessage, successMessage,
-    toggleView, handleManualLogin, handleGoogleLogin, handleForgotPassword
+    view,
+    formData,
+    setFormData,
+    isLoading,
+    errorMessage,
+    successMessage,
+    toggleView,
+    handleManualLogin,
+    handleGoogleLogin,
+    handleForgotPassword
   };
 };

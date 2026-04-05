@@ -1,4 +1,4 @@
-// @/hooks/useAuth.ts
+// @/hooks/dashboard/useAuth.ts
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSession, logoutUser } from '@/lib/actions/auth/session';
